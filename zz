@@ -1,0 +1,194 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <iostream>
+using namespace std;
+#include <math.h>
+#include <string.h>
+#define PI 3.141592
+
+float mat_A;
+float mat_B;
+float mat_C;
+float mat_D;
+void main()
+{
+	extern float mat_A;
+	extern float mat_B;
+	extern float mat_C;
+	extern float mat_D;
+
+	float d1, d2, d3, lambda, theta, l, R;
+	double R1, Im_R1, Im_R2;
+	float Im_d;
+	float waist, confocal, location, waist_1;
+	double K, L, M, N;
+	static char filename[20]="waist.dat";
+	void matrix_T(float);
+	void matrix_R(float);
+
+	FILE *in;
+
+	theta=28.0;
+
+
+	in=fopen(filename, "w");
+
+	lambda=1.550;                  /*wavelength of the beam*/
+	lambda=0.001*lambda;
+
+/*	printf("Enter the distance between flat mirrors d1: ");
+	scanf("%f", &d1);
+	printf("Enter the distance between the flat mirror and the curved mirror d2: ");
+	scanf("%f", &d2);
+	printf("Enter the distance between curved mirrors d3: ");
+	scanf("%f", &d3);
+	printf("Enter the radius of curverture of the curved mirror R: ");
+	scanf("%f", &R);  */
+
+
+	d1=130.0;                      /*distance between flat mirrors */
+	d2=135.0;
+	d3=110.0;                      /*distance between curved mirrors */
+	R=100.0;                       /*The radius of curverture of the curved mirrors */
+
+	printf("d1=%f mm\t R1=%f mm \t R2=%f mm \t ROC=%f \t wavelength=%f um\n\n", d1, d2, d3, R, 1000.0*lambda);
+ //	fprintf(in, "d3 \t waist (um) \t confocal parameter  \t location \t R1 \t waist_1\n");
+
+
+	mat_A=1.0, mat_B=0, mat_C=0, mat_D=1.0;
+
+	matrix_T(d1);
+	//d2=(d1+d3)/(2.0*cos(theta*PI/180.0));
+  //	d2=140.0;                /*distance between the flat mirror(B) and the curved mirror(C) */
+	matrix_T(d2);
+	matrix_R(R/2);
+	matrix_T(d3);
+	matrix_R(R/2);
+ //	d2=140.0;                /*distance between the curved mirror(D) and the flat mirror (A)*/
+	matrix_T(d2);
+
+ //	printf("%f \t %f \t %f \t %f \n", mat_A, mat_B, mat_C, mat_D);
+
+		if((mat_A+mat_D)<2.0 && (mat_A+mat_D)>-2.0)         /* stability condition */
+	  {
+		Im_d=mat_B/(1.0+mat_A);
+		Im_R2=2.0*mat_B/((1.0-mat_A)*(1.0+mat_A));
+		Im_R1=(2.0)*(2.0*Im_d/Im_R2-1.0)/(mat_C+2.0/Im_R2);
+		waist=(lambda/PI)*sqrt(Im_d*(Im_R1-Im_d)*(Im_R2-Im_d)*(Im_R1+Im_R2-Im_d)/((Im_R1+Im_R2-2.0*Im_d)*(Im_R1+Im_R2-2.0*Im_d)));
+		waist=sqrt(waist);    //minimum waist in the imaginary cavity
+		confocal=2.0*PI*waist*waist/lambda;
+		location=Im_d*(Im_R2-Im_d)/(Im_R1+Im_R2-2.0*Im_d);
+		waist_1=(lambda*Im_R1/PI)*sqrt(Im_d*(Im_R2-Im_d)/((Im_R1-Im_d)*(Im_R1+Im_R2-Im_d)));
+		waist_1=sqrt(waist_1);  // waist on the mirror of the imaginary cavity
+
+//		printf("%f \t %f \t %f \t %f \t %f \t %f\n", d3, waist*1000, confocal, location, Im_R1, waist_1*1000);
+	//	fprintf(in, "%f \t %f \t %f \t %f \t %f \t %f \n\n\n\n", d3, waist*1000, confocal, location, Im_R1, waist_1*1000);
+		}
+
+		else
+		{
+		printf("Unstable\n");
+		exit (1);
+		}
+
+		R1=-Im_R1;             //initial condition of the beam
+		waist=waist_1;
+		mat_A=1.0, mat_B=0, mat_C=0, mat_D=1.0;
+
+		for(l=0.0;l<(d1+d2);l++)           //waist variation from initial point to the curved mirror (C)
+		{
+		  K=1.0/(R1*R1)+(lambda/(PI*waist*waist))*(lambda/(PI*waist*waist));
+		  L=mat_C/(K*R1)+mat_D;
+		  M=mat_A/(K*R1)+mat_B;
+		  N=lambda/(K*PI*waist*waist);
+
+		  R1=(M*M+mat_A*mat_A*N*N)/(L*M+N*N*mat_A*mat_C);
+		  waist=waist*sqrt(K*(M*M+mat_A*mat_A*N*N)/(mat_A*L-M*mat_C));
+		//  printf("%f \t %f \t %f\n", l, waist*1000, R1);
+		  fprintf(in, "%.3f \t %.3f \t %.3f\n", l, waist*1000, R1);
+		  mat_A=1.0, mat_B=1.0, mat_C=0, mat_D=1.0;
+		 }
+
+		 mat_A=1.0, mat_B=0, mat_C=0, mat_D=1.0;
+		 matrix_R(R/2.0);                      // reflection from the curved mirror (C)
+		 K=1.0/(R1*R1)+(lambda/(PI*waist*waist))*(lambda/(PI*waist*waist));
+		 L=mat_C/(K*R1)+mat_D;
+		 M=mat_A/(K*R1)+mat_B;
+		 N=lambda/(K*PI*waist*waist);
+
+		 R1=(M*M+mat_A*mat_A*N*N)/(L*M+N*N*mat_A*mat_C);
+		 waist=waist*sqrt(K*(M*M+mat_A*mat_A*N*N)/(mat_A*L-M*mat_C));
+		// printf("%f \t %f \t %f\n", d1+d2, waist*1000, R1);
+
+		 mat_A=1.0, mat_B=0, mat_C=0, mat_D=1.0;
+		 for(l=0.0;l<d3;l++)                   // waist variation between the curved mirrors
+		{
+		  K=1.0/(R1*R1)+(lambda/(PI*waist*waist))*(lambda/(PI*waist*waist));
+		  L=mat_C/(K*R1)+mat_D;
+		  M=mat_A/(K*R1)+mat_B;
+		  N=lambda/(K*PI*waist*waist);
+
+		  R1=(M*M+mat_A*mat_A*N*N)/(L*M+N*N*mat_A*mat_C);
+		  waist=waist*sqrt(K*(M*M+mat_A*mat_A*N*N)/(mat_A*L-M*mat_C));
+		 // printf("%f \t %f \t %f\n", (l+d1+112.0), waist*1000, R1);
+		  fprintf(in, "%.3f \t %.3f \t %.3f\n", (l+d1+d2), waist*1000, R1);
+		  mat_A=1.0, mat_B=1.0, mat_C=0, mat_D=1.0;
+		 }
+
+		 mat_A=1.0, mat_B=0, mat_C=0, mat_D=1.0;
+		 matrix_R(R/2.0);                 // reflection from the curved mirror (D)
+		 K=1.0/(R1*R1)+(lambda/(PI*waist*waist))*(lambda/(PI*waist*waist));
+		 L=mat_C/(K*R1)+mat_D;
+		 M=mat_A/(K*R1)+mat_B;
+		 N=lambda/(K*PI*waist*waist);
+
+		 R1=(M*M+mat_A*mat_A*N*N)/(L*M+N*N*mat_A*mat_C);
+		 waist=waist*sqrt(K*(M*M+mat_A*mat_A*N*N)/(mat_A*L-M*mat_C));
+		// printf("%f \t %f \t %f\n", d1+d2, waist*1000, R1);
+
+		 mat_A=1.0, mat_B=0, mat_C=0, mat_D=1.0;
+		 for(l=0.0;l<d2;l++)            //waist variation from the curved mirror(D) to the flat mirror (A)
+		{
+		  K=1.0/(R1*R1)+(lambda/(PI*waist*waist))*(lambda/(PI*waist*waist));
+		  L=mat_C/(K*R1)+mat_D;
+		  M=mat_A/(K*R1)+mat_B;
+		  N=lambda/(K*PI*waist*waist);
+
+		  R1=(M*M+mat_A*mat_A*N*N)/(L*M+N*N*mat_A*mat_C);
+		  waist=waist*sqrt(K*(M*M+mat_A*mat_A*N*N)/(mat_A*L-M*mat_C));
+		 // printf("%f \t %f \t %f\n", (l+d1+112.0+d3), waist*1000, R1);
+		  fprintf(in, "%.3f \t %.3f \t %.3f\n", (l+d1+d2+d3), waist*1000, R1);
+		  mat_A=1.0, mat_B=1.0, mat_C=0, mat_D=1.0;
+		 }
+
+
+	fclose(in);
+
+}
+
+
+void matrix_T(float d)
+	{
+	extern float mat_A, mat_B, mat_C, mat_D;
+	float temp_A, temp_B, temp_C, temp_D;
+
+	temp_A=mat_A, temp_B=mat_B, temp_C=mat_C, temp_D=mat_D;
+
+	mat_A=1.0*temp_A+d*temp_C;
+	mat_B=1.0*temp_B+d*temp_D;
+	mat_C=1.0*temp_C;
+	mat_D=1.0*temp_D;
+	}
+
+void matrix_R(float f)
+	{
+	extern float mat_A, mat_B, mat_C, mat_D;
+	float temp_A, temp_B, temp_C, temp_D;
+
+	temp_A=mat_A, temp_B=mat_B, temp_C=mat_C, temp_D=mat_D;
+
+	mat_A=1.0*temp_A;
+	mat_B=1.0*temp_B;
+	mat_C=(-1.0/f)*temp_A+1.0*temp_C;
+	mat_D=(-1.0/f)*temp_B+1.0*temp_D;
+	}
